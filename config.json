@@ -1,0 +1,11 @@
+{
+	"prefix": "!",
+	"token": "ODI4OTE1NzUzNjI0MjcyOTU2.YGwh9A.4psf6aJzbg7gGXQ4xSsuCBYUnhY",
+	"fflogs": "5fe56db4aadb197228969ead9974a755",
+	"cat": "978d0650-80dd-459d-a0cf-306538ac873a",
+	"mongoPath": "mongodb://localhost:27017/discordbot",
+    "pw":{
+
+
+    }
+}
