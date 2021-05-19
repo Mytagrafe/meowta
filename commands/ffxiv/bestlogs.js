@@ -5,8 +5,7 @@ const Discord = require('discord.js');
 module.exports = {
 	name: 'bestlogs',
 	description: 'Retrieves best logs for specified player from FFLogs.',
-	async execute(message) {
-
+	execute(message, args) {
 		const questions = [
 			'What character do you want to look up?',
 			'What server?',
@@ -15,115 +14,96 @@ module.exports = {
 		];
 
 		let counter = 0;
-		const filter = (m) => m.author.id === message.author.id;
-		const collector = new Discord.MessageCollector(message.channel, filter, { max: questions.length, time: 1000 * 30 });
-		message.channel.send(questions[counter++]);
 		const data = [];
-
-		collector.on('collect', m => {
-			if(counter < questions.length) {
-				m.channel.send(questions[counter++]);
-			}
-		});
-
-		collector.on('end', collected => {
-			if(collected.size < questions.length) {
-				return message.channel.send('You didn\'t answer one or more of the prompts correctly. Try again.');
-			}
-			collected.forEach((value) => {
-				data.push(value.content);
-			});
-			try {
-				grabLogs(data, message);
-			}
-			catch (err) {
+		if(args.length === 5) {
+			data.push(args[0] + '%20' + args[1]);
+			data.push(args[2]);
+			data.push(args[3]);
+			data.push(args[4]);
+			grabLogs(data, message).then().catch((err) => {
 				message.channel.send(err);
-			}
-		});
+			});
+		}
+		else {
+			const filter = (m) => m.author.id === message.author.id;
+			const collector = new Discord.MessageCollector(message.channel, filter, { max: questions.length, time: 1000 * 30 });
+			message.channel.send(questions[counter++]);
+			collector.on('collect', m => {
+				if(counter < questions.length) {
+					m.channel.send(questions[counter++]);
+				}
+			});
+			collector.on('end', collected => {
+				if(collected.size < questions.length) {
+					return message.channel.send('You didn\'t answer one or more of the prompts correctly. Try again.');
+				}
+				collected.forEach((value) => {
+					data.push(value.content);
+				});
+				grabLogs(data, message).then().catch((err) => {
+					message.channel.send(err);
+				});
+			});
+		}
 	},
 };
 
 const grabLogs = async (data, message) => {
 	const zone = 38;
-	let fightNum = 73;
 	const fights = 5;
 	const percentiles = [];
+	const maxParse = [];
+	let fightNum = 73;
 	data[0] = data[0].replace(' ', '%20');
-	console.log(data);
-	message.channel.send(`https://www.fflogs.com/v1/rankings/character/${data[0]}/${data[1]}/${data[2]}?zone=${zone}&encounter=${fightNum}&metric=rdps&partition=1&timeframe=${data[3]}&api_key=${fflogs}`);
 
+	for(let i = 0; i < fights; i++, fightNum++) {
+		try{
+			const [firstRes, secondRes] = await Promise.all([
+				axios.get(`https://www.fflogs.com/v1/rankings/character/${data[0]}/${data[1]}/${data[2]}?zone=${zone}&encounter=${fightNum}&metric=rdps&partition=1&timeframe=${data[3]}&api_key=${fflogs}`),
+				axios.get(`https://www.fflogs.com/v1/rankings/character/${data[0]}/${data[1]}/${data[2]}?zone=${zone}&encounter=${fightNum}&metric=rdps&timeframe=${data[3]}&api_key=${fflogs}`),
+			]);
+			percentiles.push([ firstRes, secondRes ]);
+		}
+		catch (err) {
+			throw 'Something went wrong. Make sure you\'ve entered the correct information. Or, try again later.';
+		}
+	}
 	for(let i = 0; i < fights; i++) {
 		let max = 0;
-		let fightName = '';
 		let job = '';
-		await axios.get(`https://www.fflogs.com/v1/rankings/character/${data[0]}/${data[1]}/${data[2]}?zone=${zone}&encounter=${fightNum}&metric=rdps&partition=1&timeframe=${data[3]}&api_key=${fflogs}`)
-			.then((res) =>{
-				fightName = res.data[0].encounterName;
-				for(let j = 0; j < res.data.length; j++) {
-					if(max < res.data[j].percentile) {
-						max = res.data[j].percentile;
-						job = res.data[j].spec;
-					}
-					console.log(res.data[j].percentile);
-					console.log(`Max: ${max}`);
-					console.log(`Fight Name: ${fightName}`);
-					console.log(`Job: ${job}`);
+		for(let j = 0; j < percentiles[i][0].data.length; j++) {
+			if(percentiles[i][0].data.length > 0) {
+				if(max < percentiles[i][0].data[j].percentile) {
+					max = percentiles[i][0].data[j].percentile;
+					job = percentiles[i][0].data[j].spec;
 				}
-			}).catch((err) => {
-				console.log(err);
-			});
-		// axios.get(`https://www.fflogs.com/v1/rankings/character/${data[0]}/${data[1]}/${data[2]}?zone=${zone}&encounter=${fightNum}&metric=rdps&timeframe=${data[3]}&api_key=${fflogs}`)
-		// 	.then((res) =>{
-		// 		fightName = res.data[0].encounterName;
-		// 		for(let j = 0; j < res.data.length; j++) {
-		// 			if(max < res.data[j].percentile) {
-		// 				max = res.data[j].percentile;
-		// 				job = res.data[j].spec;
-		// 			}
-		// 		}
-		// 	}).catch((error) => {
-		// 		throw 'That character is private, or there\'s something wrong with the FFLogs API. Please try again later if your selected character isn\'t private!';
-		// 	});
+			}
+			else {
+				job = 'No clears.';
+			}
+		}
+		for(let j = 0; j < percentiles[i][1].data.length; j++) {
+			if(percentiles[i][1].data.length > 0) {
+				if(max < percentiles[i][1].data[j].percentile) {
+					max = percentiles[i][1].data[j].percentile;
+					job = percentiles[i][1].data[j].spec;
+				}
+			}
+		}
 		job.replace(/\s/g, '');
-		console.log(`${fightName} max: ${max}`);
-		// const ayy = message.client.emojis.cache.find(emoji => emoji.name === `${job}`);
-		const struc = {
-			val: max,
-			name: fightName,
-			job: job,
-		};
-		console.log(struc);
-		percentiles.push(struc);
-		fightNum++;
+		maxParse.push([ max, job ]);
 	}
-
-	console.log(percentiles[0]);
 	const embed = new Discord.MessageEmbed()
-		.setAuthor('xd')
+		.setAuthor('Eden\'s Promise')
 		.setColor('#dea5a4')
+		.setThumbnail('https://assets.rpglogs.com/img/ff/zones/zone-38.png')
 		.setDescription('Top logs for Eden\'s Promise.')
 		.addFields(
-			{ name: `**${percentiles[0][2]}**`, value: `${percentiles[0][1]} ${percentiles[0][0]}` },
-			{ name: `**${percentiles[1][2]}**`, value: `${percentiles[0][1]} ${percentiles[0][0]}` },
-			{ name: `**${percentiles[2][2]}**`, value: `${percentiles[0][1]} ${percentiles[0][0]}` },
-			{ name: `**${percentiles[3][2]}**`, value: `${percentiles[0][1]} ${percentiles[0][0]}` },
-			{ name: `**${percentiles[4][2]}**`, value: `${percentiles[0][1]} ${percentiles[0][0]}` })
+			{ name: '**Cloud of Darkness**', value: `${maxParse[0][1]} ${maxParse[0][0]}` },
+			{ name: '**Shadowkeeper**', value: `${maxParse[1][1]} ${maxParse[1][0]}` },
+			{ name: '**Fatebringer**', value: `${maxParse[2][1]} ${maxParse[2][0]}` },
+			{ name: '**Eden\'s Promise**', value: `${maxParse[3][1]} ${maxParse[3][0]}` },
+			{ name: '**Oracle of Darkness**', value: `${maxParse[4][1]} ${maxParse[4][0]}` })
 		.setTimestamp();
 	message.channel.send(embed);
 };
-
-// const sendEmbed = (percentiles, message) => {
-// 	console.log(percentiles[0]);
-// 	const embed = new Discord.MessageEmbed()
-// 		.setAuthor('xd')
-// 		.setColor('#dea5a4')
-// 		.setDescription('Top logs for Eden\'s Promise.')
-// 		.addFields(
-// 			{ name: `**${percentiles[0][2]}**`, value: `${percentiles[0][1]} ${percentiles[0][0]}` },
-// 			{ name: `**${percentiles[1][2]}**`, value: `${percentiles[0][1]} ${percentiles[0][0]}` },
-// 			{ name: `**${percentiles[2][2]}**`, value: `${percentiles[0][1]} ${percentiles[0][0]}` },
-// 			{ name: `**${percentiles[3][2]}**`, value: `${percentiles[0][1]} ${percentiles[0][0]}` },
-// 			{ name: `**${percentiles[4][2]}**`, value: `${percentiles[0][1]} ${percentiles[0][0]}` })
-// 		.setTimestamp();
-// 	message.channel.send(embed);
-// };

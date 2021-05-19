@@ -6,7 +6,7 @@ const queue = new Map();
 
 module.exports = {
 	name: 'play',
-	aliases: ['skip', 'stop', 'songname', 'pause', 'resume'],
+	aliases: ['skip', 'stop', 'songname', 'pause', 'resume', 'songqueue'],
 	guildOnly: true,
 	description: 'Play a YouTube video in the specified voice channel.',
 	async execute(message, args, cmd) {
@@ -69,9 +69,10 @@ module.exports = {
 		}
 		else if (cmd === 'skip') { skipSong(message, serverQueue); }
 		else if (cmd === 'stop') { stop(message, serverQueue); }
-		else if (cmd === 'songName') { songName(message, serverQueue); }
+		else if (cmd === 'songname') { songName(message, serverQueue); }
 		else if (cmd === 'pause') { pause(message, serverQueue); }
 		else if (cmd === 'resume') { resume(message, serverQueue); }
+		else if (cmd === 'queue') { songqueue(message, serverQueue); }
 	},
 
 };
@@ -128,4 +129,14 @@ const check = (message, serverQueue) => {
 	if(!message.member.voice.channel) message.channel.send('You need to be in a voice channel to use this command.');
 	if(!serverQueue) ('There are no songs in the queue.');
 	return true;
+};
+
+const songqueue = (message, serverQueue) => {
+	if(check(message, serverQueue)) {
+		let ret = '';
+		for(let i = 0; i < serverQueue.songs.length; i++) {
+			ret += `${i}: ${serverQueue.songs[i].title}\n`;
+		}
+		message.channel.send(ret);
+	}
 };

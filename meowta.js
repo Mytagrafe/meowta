@@ -64,8 +64,6 @@ client.on('message', message => {
 		console.error(error);
 		message.reply('There was an error when trying to execute that command. Check your spelling and syntax!');
 	}
-
-	message.channel.send(`Command name: ${commandName}\nArguments: ${args}`);
 });
 
 client.on('guildMemberAdd', (member) => {
